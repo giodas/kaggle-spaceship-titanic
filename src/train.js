@@ -36,30 +36,33 @@ async function run() {
         console.log('String indices:', stringIndices);
     });
 
+    // Helper to encode boolean/string label to 0/1
+    function encodeLabel(ys) {
+        const v = ys.Transported;
+        if (v === true || v === 'True' || v === 'true' || v === 1) return 1;
+        if (v === false || v === 'False' || v === 'false' || v === 0) return 0;
+        return NaN; // unexpected / missing
+    }
 
-    // Dataset with ONLY numeric features (numbers or NaN placeholders)
+    // Dataset with ONLY numeric features (numbers or NaN placeholders) + numeric label
     const numericDataset = csvDataset.map(({ xs, ys }) => {
         const numArray = numericIndices.map(i => {
             const v = xs[featureNames[i]];
-            if (typeof v === 'number') {
-                return v;
-            } else {
-                return NaN; // Placeholder for missing numeric values
-            }
+            return (typeof v === 'number') ? v : NaN;
         });
-        return { xs: numArray, ys: Object.values(ys) };
+        const label = encodeLabel(ys);
+        return { xs: numArray, ys: [label] };
     }).batch(32);
 
-    // Dataset with ONLY string (non-numeric) features
-    // (tfjs will create string tensors; you must later encode these to numeric)
+    // Dataset with ONLY string (non-numeric) features + numeric label
     const stringDataset = csvDataset.map(({ xs, ys }) => {
         const strArray = stringIndices.map(i => {
             const v = xs[featureNames[i]];
             if (typeof v === 'string') return v;
-            // Convert numeric to string only if you want to preserve it here, else placeholder
-            return undefined;
+            return (v === null || v === undefined) ? '___MISSING___' : String(v);
         });
-        return { xs: strArray, ys: Object.values(ys) };
+        const label = encodeLabel(ys);
+        return { xs: strArray, ys: [label] };
     }).batch(32);
 
     // Debug: first numeric batch
@@ -132,14 +135,15 @@ async function run() {
         });
     }
 
-    // Re-create stringDataset (second pass) to align with numeric batches for merging
+    // Re-create stringDataset (second pass) to align with numeric batches for merging (with numeric labels)
     const freshStringDataset = csvDataset.map(({ xs, ys }) => {
         const strArray = stringIndices.map(i => {
             const v = xs[featureNames[i]];
             if (typeof v === 'string') return v;
-            return String(v);
+            return (v === null || v === undefined) ? '___MISSING___' : String(v);
         });
-        return { xs: strArray, ys: Object.values(ys) };
+        const label = encodeLabel(ys);
+        return { xs: strArray, ys: [label] };
     }).batch(32);
 
     // Merge numeric + encoded string (concatenate feature axis)
