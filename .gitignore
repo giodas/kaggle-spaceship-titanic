@@ -1,0 +1,63 @@
+# Node modules and package manager artifacts
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+# Build / dist output
+dist/
+build/
+out/
+.tmp/
+temp/
+
+# Logs
+logs/
+*.log
+
+# Coverage / test
+coverage/
+.nyc_output/
+jest-cache/
+jest-temp/
+
+# TypeScript (if added later)
+*.tsbuildinfo
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# VS Code settings (keep only shared recommendations)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# IDEs
+.idea/
+*.iml
+
+# TensorFlow.js generated model artifacts (uncomment if you don't want to commit trained models)
+models/
+saved_models/
+logdir/
+results/
+**/model.json
+**/weights.bin
+
+# Cache
+.cache/
+.parcel-cache/
+eslintcache
+
+# Misc
+*.swp
+*.lock
