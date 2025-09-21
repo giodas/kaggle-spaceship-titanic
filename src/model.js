@@ -1,20 +1,16 @@
 import * as tf from '@tensorflow/tfjs';
 
-/**
- * Builds and returns Multi Layer Perceptron Regression Model
- * with 2 hidden layers, each with 10 units activated by sigmoid.
- *
- * @returns {tf.Sequential} The multi layer perceptron regression model.
- */
-
-const model = tf.sequential();
-model.add(tf.layers.dense({
-    inputShape: [13],
-    units: 50,
-    activation: 'sigmoid',
-    kernelInitializer: 'leCunNormal'
-}));
-model.add(tf.layers.dense(
-    { units: 50, activation: 'sigmoid', kernelInitializer: 'leCunNormal' }));
-model.add(tf.layers.dense({ units: 1 }));
+export function createModel(inputDim) {
+  const model = tf.sequential();
+  const l2 = tf.regularizers.l2({ l2: 1e-4 });
+  model.add(tf.layers.dense({ inputShape: [inputDim], units: 128, activation: 'relu', kernelRegularizer: l2 }));
+  model.add(tf.layers.dropout({ rate: 0.2 }));
+  model.add(tf.layers.dense({ units: 64, activation: 'relu', kernelRegularizer: l2 }));
+  model.add(tf.layers.dropout({ rate: 0.2 }));
+  model.add(tf.layers.dense({ units: 128, activation: 'relu', kernelRegularizer: l2 }));
+  model.add(tf.layers.dropout({ rate: 0.2 }));
+  model.add(tf.layers.dense({ units: 1, activation: 'sigmoid', kernelRegularizer: l2 }));
+  model.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });
+  return model;
+}
 
