@@ -7,7 +7,7 @@ export function createModel(inputDim) {
   model.add(tf.layers.dropout({ rate: 0.2 }));
   model.add(tf.layers.dense({ units: 64, activation: 'relu', kernelRegularizer: l2 }));
   model.add(tf.layers.dropout({ rate: 0.2 }));
-  model.add(tf.layers.dense({ units: 128, activation: 'relu', kernelRegularizer: l2 }));
+  model.add(tf.layers.dense({ units: 32, activation: 'relu', kernelRegularizer: l2 }));
   model.add(tf.layers.dropout({ rate: 0.2 }));
   model.add(tf.layers.dense({ units: 1, activation: 'sigmoid', kernelRegularizer: l2 }));
   model.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });

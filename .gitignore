@@ -46,7 +46,7 @@ Thumbs.db
 *.iml
 
 # TensorFlow.js generated model artifacts (uncomment if you don't want to commit trained models)
-models/
+model_artifacts/
 saved_models/
 logdir/
 results/

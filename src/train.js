@@ -1,4 +1,5 @@
 import * as tf from '@tensorflow/tfjs-node';
+import { createModel } from './model.js';
 
 async function run() {
 
@@ -181,6 +182,38 @@ async function run() {
         console.log('Sample batch features:', b.xs.arraySync());
         console.log('Sample batch labels:', b.ys.arraySync());
     });
+
+    // Create and train model
+    const model = createModel(totalDim);
+    const EPOCHS = 20;
+    console.log('Starting training...');
+    await model.fitDataset(encodedDataset, {
+        epochs: EPOCHS,
+        verbose: 1,
+        callbacks: tf.node.tensorBoard('../logdir', {
+            updateFreq: 'batch'
+        })
+    });
+    console.log('Training complete.');
+
+    // Persist preprocessing artifacts (include numericMeans)
+    const fs = await import('fs');
+    if (!fs.existsSync('../model_artifacts')) fs.mkdirSync('../model_artifacts', { recursive: true });
+    const artifacts = {
+        featureNames,
+        numericIndices,
+        stringIndices,
+        numericMeans,
+        vocabByFeature,
+        oneHotOffsets,
+        totalDim
+    };
+    fs.writeFileSync('../model_artifacts/preprocessing.json', JSON.stringify(artifacts, null, 2));
+    console.log('Saved preprocessing artifacts to model_artifacts/preprocessing.json');
+
+    // Save model
+    await model.save('file://../model_artifacts/model');
+    console.log('Model saved to model_artifacts/model');
 }
 
 run();
