@@ -38,6 +38,7 @@ async function run() {
     // ---- Compute mean for numeric features (ignore missing / non-finite) ----
     const numCount = numericIndices.length;
     const sums = new Array(numCount).fill(0);
+    const sumSquares = new Array(numCount).fill(0); // for std
     const counts = new Array(numCount).fill(0);
 
     await rawDataset.forEachAsync(({ xs }) => {
@@ -46,13 +47,22 @@ async function run() {
             const v = xs[name];
             if (typeof v === 'number' && Number.isFinite(v)) {
                 sums[pos] += v;
+                sumSquares[pos] += v * v;
                 counts[pos] += 1;
             }
         });
     });
 
     const numericMeans = sums.map((s, i) => counts[i] > 0 ? s / counts[i] : 0);
+    const numericStds = numericMeans.map((m, i) => {
+        if (counts[i] === 0) return 1; // avoid divide by zero; will yield 0 after normalization
+        const meanSq = sumSquares[i] / counts[i];
+        const var_ = meanSq - m * m;
+        return Math.sqrt(Math.max(var_, 1e-12));
+    });
     console.log('Numeric means (imputation values):', numericMeans);
+    console.log('Numeric stds (for normalization):', numericStds);
+
 
     // Re-create dataset for encoding (previous iterator consumed)
     rawDataset = makeDataset();
@@ -141,11 +151,13 @@ async function run() {
     const encodedDataset = rawDataset.map(({ xs, ys }) => {
         const vec = new Array(totalDim).fill(0);
 
-        // Numeric with mean imputation
+        // Numeric with mean imputation + standardization
         numericIndices.forEach((colIdx, pos) => {
             const name = featureNames[colIdx];
             const v = xs[name];
-            vec[pos] = (typeof v === 'number' && Number.isFinite(v)) ? v : numericMeans[pos];
+            const imputed = (typeof v === 'number' && Number.isFinite(v)) ? v : numericMeans[pos];
+            const std = numericStds[pos] > 0 ? numericStds[pos] : 1;
+            vec[pos] = (imputed - numericMeans[pos]) / std;
         });
 
         // String one-hot
@@ -204,6 +216,7 @@ async function run() {
         numericIndices,
         stringIndices,
         numericMeans,
+        numericStds,
         vocabByFeature,
         oneHotOffsets,
         totalDim

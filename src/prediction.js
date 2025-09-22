@@ -13,6 +13,7 @@ async function main() {
     numericIndices,
     stringIndices,
     numericMeans,
+    numericStds,              
     vocabByFeature,
     oneHotOffsets,
     totalDim
@@ -43,18 +44,22 @@ async function main() {
   function encodeRow(xs) {
     const vec = new Array(totalDim).fill(0);
 
-    // Numeric with mean imputation
+    // Numeric: mean impute + normalization
     numericIndices.forEach((colIdx, pos) => {
       const name = featureNames[colIdx];
       const v = xs[name];
-      vec[pos] = (typeof v === 'number' && Number.isFinite(v)) ? v : numericMeans[pos];
+      const mean = numericMeans[pos];
+      const std = numericStds && numericStds[pos] > 0 ? numericStds[pos] : 1;
+      const raw = (typeof v === 'number' && Number.isFinite(v)) ? v : mean;
+      vec[pos] = (raw - mean) / std;
     });
 
     // String one-hot
     stringIndices.forEach(i => {
       const name = featureNames[i];
-      if (!oneHotOffsets[name]) return; // Should not happen if artifacts consistent
-      const { offset, size } = oneHotOffsets[name];
+      const meta = oneHotOffsets[name];
+      if (!meta) return;
+      const { offset, size } = meta;
       let v = xs[name];
       if (v === null || v === undefined || v === '') v = '__MISSING__';
       v = String(v);
