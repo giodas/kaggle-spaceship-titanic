@@ -18,6 +18,8 @@ cd data && kaggle competitions download -c spaceship-titanic && unzip spaceship-
 
 ## Run
 
+```bash
 $ cd src
 $ node train.js
 $ node prediction.js
+```
