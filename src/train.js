@@ -36,6 +36,26 @@ async function run() {
     });
     
     // ---- Compute mean for numeric features (ignore missing / non-finite) ----
+    /**
+        This block computes per‑numeric‑feature mean and standard deviation in a single streaming pass over the dataset so later 
+        normalization and missing‑value imputation can be consistent. It first derives numCount from numericIndices 
+        (the ordered list of numeric feature column indexes) and allocates parallel arrays: sums (∑x), sumSquares (∑x² for variance), 
+        and counts (number of finite observations) initialized to zero.
+
+        The forEachAsync pass iterates each row object xs. For every numeric feature (tracked by its column index colIdx and 
+        positional index pos) it fetches the raw value. Only finite numbers are accumulated; non‑finite (null/undefined/NaN/Infinity) 
+        entries are skipped, leaving their contribution to imputation handled later by the computed mean. For accepted values it increments sums[pos], 
+        sumSquares[pos], and counts[pos], producing sufficient statistics without storing all raw samples (memory efficient for large CSVs).
+
+        After the pass, numericMeans is computed as sums/counts with a safe fallback of 0 when a feature had zero valid observations (prevents NaN). 
+        Standard deviations are then derived using the relation Var = E[x²] − (E[x])², where meanSq is E[x²] = sumSquares/count. 
+        A guard returns 1 when counts[i] === 0 to avoid division by zero in downstream normalization (so (x−mean)/std becomes (0−0)/1 = 0 for entirely missing columns). 
+        Math.max(var_, 1e-12) clamp prevents tiny negative variances from floating‑point round‑off and avoids sqrt(0), stabilizing gradients later. 
+        This yields a population (not sample) variance; if an unbiased sample estimate were desired, a factor counts/(counts−1) would be applied when counts > 1. 
+        Finally, the means (used for imputation) and stds (used for scaling) are logged so they can be inspected or persisted for inference consistency. 
+        Potential edge cases include columns with extremely large magnitudes (risking loss of precision in sumSquares) and entirely missing columns 
+        producing all zeros after normalization.
+     */
     const numCount = numericIndices.length;
     const sums = new Array(numCount).fill(0);
     const sumSquares = new Array(numCount).fill(0); // for std
@@ -68,6 +88,24 @@ async function run() {
     rawDataset = makeDataset();
 
     // ---- Build vocabularies for string features (with __MISSING__) ----
+    /**
+        This block builds per-feature vocabularies for all categorical (string) columns. It initializes an object vocabSets whose 
+        keys will be the categorical feature names and whose values are Set instances (Sets automatically keep only unique entries). 
+        The first loop seeds vocabSets with empty Sets for each string feature (identified earlier and stored in stringIndices, 
+        which maps positions into featureNames).
+
+        Next, it performs a full pass over rawDataset using forEachAsync. For every row (xs) it iterates the same string feature indices. 
+        It pulls the raw value, normalizes any null / undefined / empty string to a sentinel 'MISSING' (ensuring a stable bucket for missing values), 
+        then coerces the value to a string with String(v). That coercion prevents subtle mismatches from mixed types (e.g., a number vs. its string form) 
+        and guarantees consistent Set membership. The cleaned token is added to the feature’s Set, gradually accumulating the distinct category 
+        universe for that column across the dataset.
+
+        Finally, it logs the vocabSets object so you can inspect the discovered categories (including the injected missing sentinel) for debugging or 
+        to confirm cardinalities. Potential considerations: (1) Very high-cardinality columns can balloon memory and later one-hot dimensionality; 
+        you might cap or frequency-filter. (2) Truncating or sorting happens later—Sets here do not preserve insertion order guarantees for downstream 
+        deterministic indexing, so a later explicit sort (as done elsewhere) is necessary. (3) Any categories appearing only in validation/test but 
+        absent here will fall back to the 'MISSING' bucket.
+     */
     const vocabSets = {};
     stringIndices.forEach(i => vocabSets[featureNames[i]] = new Set());
 
